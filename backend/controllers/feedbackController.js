@@ -357,76 +357,81 @@ exports.getFeedbackByTrackingKey = (req, res) => {
     return res.status(400).json({ message: "Tracking key is required" });
   }
 
-  // First, get the basic feedback information
-  const feedbackSql = `
-    SELECT 
-      f.id,
-      f.subject,
-      f.message,
-      f.category,
-      f.status,
-      f.tracking_key,
-      f.created_at,
-      f.file,
-      u.name as user_name
+  // First, get the user ID from the tracking key
+  const userSql = `
+    SELECT f.user_id, f.id as feedback_id
     FROM feedback f
-    LEFT JOIN users u ON f.user_id = u.id
     WHERE f.tracking_key = ?
   `;
 
-  console.log('Executing feedback query:', feedbackSql);
+  console.log('Executing user query:', userSql);
   console.log('With parameters:', [tracking_key]);
 
-  db.query(feedbackSql, [tracking_key], (err, feedbackResults) => {
+  db.query(userSql, [tracking_key], (err, userResults) => {
     if (err) {
-      console.error("Database error in feedback query:", err);
-      return res.status(500).json({ message: "Error fetching feedback", error: err.message });
+      console.error("Database error in user query:", err);
+      return res.status(500).json({ message: "Error fetching user information", error: err.message });
     }
     
-    if (feedbackResults.length === 0) {
+    if (userResults.length === 0) {
       console.log('No feedback found for tracking key:', tracking_key);
       return res.status(404).json({ message: "Feedback not found" });
     }
 
-    const feedback = feedbackResults[0];
-    console.log('Found feedback:', feedback);
+    const userId = userResults[0].user_id;
+    console.log('Found user ID:', userId);
 
-    // If feedback is assigned, get assignment and response details
-    if (feedback.status === 'Assigned' || feedback.status === 'Under Review' || feedback.status === 'Completed' || feedback.status === 'In Progress') {
-      const detailsSql = `
-        SELECT 
-          e.name as employee_name,
-          fr.employee_reply,
-          fr.status as response_status,
-          fr.hod_comment,
-          fr.created_at as response_date
-        FROM feedback_assignments fa
-        LEFT JOIN users e ON fa.employee_id = e.id
-        LEFT JOIN feedback_responses fr ON fa.id = fr.assignment_id
-        WHERE fa.feedback_id = ?
-        ORDER BY fr.created_at DESC
-        LIMIT 1
-      `;
+    // Now get all feedback for this user
+    const feedbackSql = `
+      SELECT 
+        f.id,
+        f.subject,
+        f.message,
+        f.category,
+        f.status,
+        f.tracking_key,
+        f.created_at,
+        f.file,
+        u.name as user_name,
+        e.name as employee_name,
+        fr.employee_reply,
+        fr.status as response_status,
+        fr.hod_comment,
+        fr.created_at as response_date
+      FROM feedback f
+      LEFT JOIN users u ON f.user_id = u.id
+      LEFT JOIN feedback_assignments fa ON f.id = fa.feedback_id
+      LEFT JOIN users e ON fa.employee_id = e.id
+      LEFT JOIN feedback_responses fr ON fa.id = fr.assignment_id
+      WHERE f.user_id = ?
+      ORDER BY f.created_at DESC
+    `;
 
-      console.log('Executing details query:', detailsSql);
-      console.log('With parameters:', [feedback.id]);
+    console.log('Executing feedback query:', feedbackSql);
+    console.log('With parameters:', [userId]);
 
-      db.query(detailsSql, [feedback.id], (err2, detailResults) => {
-        if (err2) {
-          console.error("Database error in details query:", err2);
-          return res.status(500).json({ message: "Error fetching feedback details", error: err2.message });
-        }
+    db.query(feedbackSql, [userId], (err2, feedbackResults) => {
+      if (err2) {
+        console.error("Database error in feedback query:", err2);
+        return res.status(500).json({ message: "Error fetching feedback", error: err2.message });
+      }
 
-        if (detailResults.length > 0) {
-          Object.assign(feedback, detailResults[0]);
-        }
+      // Find the specific feedback that matches the tracking key
+      const specificFeedback = feedbackResults.find(f => f.tracking_key === tracking_key);
+      
+      if (!specificFeedback) {
+        console.log('No feedback found for tracking key:', tracking_key);
+        return res.status(404).json({ message: "Feedback not found" });
+      }
 
-        console.log('Final feedback object:', feedback);
-        res.json(feedback);
-      });
-    } else {
-      console.log('Feedback not assigned, sending basic info');
-      res.json(feedback);
-    }
+      // Add all user feedback to the response
+      const response = {
+        current_feedback: specificFeedback,
+        all_feedback: feedbackResults
+      };
+
+      console.log('Sending response with current feedback and all user feedback');
+      res.json(response);
+    });
   });
 };

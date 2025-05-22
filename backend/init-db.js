@@ -12,7 +12,7 @@ async function initializeDatabase() {
       password: process.env.DB_PASSWORD
     });
 
-    console.log('Connected to MySQL server');
+    console.log('Connected');
 
     // Read and execute schema.sql
     const schemaPath = path.join(__dirname, 'schema.sql');
@@ -38,7 +38,7 @@ async function initializeDatabase() {
       }
     }
 
-    console.log('Database initialization completed');
+    console.log('Database Connected ');
     await connection.end();
   } catch (err) {
     console.error('Error initializing database:', err);
