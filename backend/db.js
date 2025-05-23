@@ -8,7 +8,7 @@ const connection = mysql.createConnection({
   database: process.env.DB_NAME || 'feedback_system'
 });
 
-console.log('Attempting to connect to database with config:', {
+console.log('Az', {
   host: process.env.DB_HOST || 'localhost',
   user: process.env.DB_USER || 'root',
   database: process.env.DB_NAME || 'feedback_system'
