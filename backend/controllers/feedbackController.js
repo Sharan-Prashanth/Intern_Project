@@ -25,7 +25,6 @@ exports.submitFeedback = (req, res) => {
 
     let userId;
     if (results.length === 0) {
-      // Create new user if doesn't exist
       const createUserSql = 'INSERT INTO users (username, email, password, name, user_type) VALUES (?, ?, ?, ?, ?)';
       const username = email.split('@')[0]; // Generate username from email
       const defaultPassword = 'password123'; // Default password
